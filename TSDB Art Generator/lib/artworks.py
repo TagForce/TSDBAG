@@ -140,7 +140,8 @@ def add_text(art, text, font, size, just, pos, rotation, textcolor, dropshadow, 
         return art
     print("Adding '{0}' to the artwork using the following configuration:\nfont: {1}\nposition: ({2}, {3})\nrotation: {4} degrees\ncolor: {5}\ndropshadow: {6}\ndropcolor: {7}".format(text, font, pos[0], pos[1], rotation, textcolor, dropshadow, dropcolor))
     result = art
-    ol = ImageDraw.Draw(result)
+    textimage = Image.new('RGBA', art.size)
+    ol = ImageDraw.Draw(textimage)
     font = ImageFont.truetype(font, size)
     match just:
         case "left":
@@ -153,20 +154,27 @@ def add_text(art, text, font, size, just, pos, rotation, textcolor, dropshadow, 
             anchor = 'ls'
     # Create the drop shadow first if true:
     if dropshadow:
-        drop = drop_shadow(result, pos, text, dropcolor, font, anchor)
+        drop = drop_shadow(result, pos, text, dropcolor, font, anchor, rotation)
+        
         result.paste(drop, drop)
     
     # Now place the text
     ol.text(pos, text, fill=(textcolor['r'], textcolor['g'], textcolor['b']), font=font, anchor=anchor)
+    textimage = textimage.rotate(angle=rotation, center=pos)
+    textimage = textimage.resize([textimage.width * 2, textimage.height * 2], resample=Image.Resampling.LANCZOS)
+    textimage = textimage.resize([textimage.width // 2, textimage.height // 2], resample=Image.Resampling.LANCZOS)
+    result.paste(textimage, textimage)
     return result
 
-def drop_shadow(art, pos, text, color, font, anchor):
+
+def drop_shadow(art, pos, text, color, font, anchor, rotation):
     
     drop = Image.new('RGBA', art.size)
     draw = ImageDraw.Draw(drop)
     draw.text(pos, text, fill=(color['r'], color['g'], color['b']), font=font, anchor=anchor)
     for i in range(7):
         drop = drop.filter(ImageFilter.BLUR)
+    drop = drop.rotate(angle=rotation, center=pos)
     return drop
     
     
@@ -236,7 +244,7 @@ def generate_art(job):
                         command[func]['just'],
                         [command[func]['pos']['x'], command[func]['pos']['y']], 
                         command[func]['rot'],
-                        command[func]['color'],
+                        command[func]['fill'],
                         command[func]['drop'],
                         command[func]['dcol'])
                 case "btext":
@@ -248,7 +256,7 @@ def generate_art(job):
                         command[func]['just'],
                         [command[func]['pos']['x'], command[func]['pos']['y']], 
                         command[func]['rot'],
-                        command[func]['color'],
+                        command[func]['fill'],
                         command[func]['drop'],
                         command[func]['dcol'])
         if batchcount == 0:

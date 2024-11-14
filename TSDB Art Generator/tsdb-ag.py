@@ -42,8 +42,8 @@ Text and BText:
         "pos"   : {"x": 0, "y": 0},           <- The (x,y) coordinates of the justification point (bottom-left, bottom-right or bottom-center)
         "size"  : 10                          <- Size of the font (in points, default 10)
         "just"  : "left",                     <- The justification (left, right, center)
-        "rot"    : 0,                         <- The rotation of the text (clockwise rotation from the horizontal) around the pos pivot.
-        "color"    : {"r": 0, "g": 0, "b": 0},<- The color of the text. White (255,255,255) is the default.
+        "rot"    : 0,                         <- The rotation of the text (counter-clockwise rotation from the horizontal) around the pos pivot.
+        "fill"    : {"r": 0, "g": 0, "b": 0}, <- The fill color of the text. White (255,255,255) is the default.
         "drop"    : "true",                   <- Should the text contain a drop shadow?
         "dcol"    : {"r": 0, "g": 0, "b": 0}, <- Color of the drop shadow. Black (0,0,0) is the default.
         "dang"    : 45                        <- Angle of the drop shadow (clockwise rotation from 'east'), default is 45 degrees
