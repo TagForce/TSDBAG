@@ -4,15 +4,37 @@ Created on 12 nov. 2024
 @author: Raymond Sagius
 '''
 
-from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageChops
-import csv, os.path, sys
+from PIL import Image, ImageDraw, ImageFont, ImageFilter
+import csv, os.path
 
 
+defaults = {
+    'text'  : {
+             'text'  : {'value': '', 'type': 'str'},
+             'font'  : {'value': None, 'type': 'str'},
+             'size'  : {'value': 10, 'type': 'int'},
+             'just'  : {'value': 'left', 'type': 'str', 'list': ['left', 'right', 'center', 'centre']},
+             'pos'   : {'value': [0,0], 'type': 'list', 'length': 2},
+             'rot'   : {'value': 0, 'type': 'int'},
+             'stroke': {'value': 0, 'type': 'int'},
+             'color' : {'value': [0,0,0], 'type': 'list', 'length': 3, 'minmax': [0,255]},
+             'fill'  : {'value': [255,255,255], 'type': 'list', 'length': 3, 'minmax': [0,255]},
+             'drop'  : {'value': 'False', 'type': 'str', 'list': ['true', 'false']},
+             'dcol'  : {'value': [0,0,0], 'type': 'list', 'length': 3, 'minmax': [0,255]}
+             },
+    'overlay': {
+             'image' : {'value': None, 'type': 'str'},
+             'pos'   : {'value': [0,0], 'type': 'list', 'length': 2}
+        }
+    }
+    
+            
+    
+    
 
 def check_files(job, batchtable):
     
     csvfiles = ''
-    expfile = ''
     # Check for output folder and duplicate export filenames
     if 'fnexp' in job.keys():
         if job['fnexp'] in batchtable.keys():
@@ -29,9 +51,7 @@ def check_files(job, batchtable):
         else:
             if len(batchtable) > 0:
                 return {"error": "Column name {0} not found in the CSV.".format(job['fnexp'])}
-            if os.path.isdir(os.path.dirname(job['fnexp'])):
-                expfile = job['fnexp']
-            else:
+            if not os.path.isdir(os.path.dirname(job['fnexp'])):
                 return {"error": "Export folder not found. Please make sure {0} exists and is writable.".format(os.path.dirname(job['fnexp']))}
                 
     # Loop through each command and check for file availability
@@ -40,7 +60,6 @@ def check_files(job, batchtable):
     else:
         commands = job['commands']
         for command in commands:
-            filenames = []
             ctype = list(command)[0]
             match ctype:
                 case 'overlay':
@@ -124,21 +143,21 @@ def add_overlay(art, img, pos):
     
     if img == '': # Image value is empty for this overlay, skip it.
         return art
-    print("Adding image {0} to artwork at position ({1}, {2})".format(img, pos[0], pos[1]))
+    # print("Adding image {0} to artwork at position ({1}, {2})".format(img, pos[0], pos[1]))
     result = art
     ol = Image.open(img)
-    result.paste(ol, pos, ol)
+    result.paste(ol, pos.copy(), ol)
     return result
 
 
 
 # Add text on top of the artwork
-def add_text(art, text, font, size, just, pos, rotation, textcolor, dropshadow, dropcolor):
+def add_text(art, text, font, size, just, pos, rotation, stroke, color, fill, dropshadow, dropcolor):
     
     dropshadow = dropshadow == "True"
     if text == '': # Text value is empty for this layer, skip it.
         return art
-    print("Adding '{0}' to the artwork using the following configuration:\nfont: {1}\nposition: ({2}, {3})\nrotation: {4} degrees\ncolor: {5}\ndropshadow: {6}\ndropcolor: {7}".format(text, font, pos[0], pos[1], rotation, textcolor, dropshadow, dropcolor))
+    #print("Adding '{0}' to the artwork.".format(text))
     result = art
     textimage = Image.new('RGBA', art.size)
     ol = ImageDraw.Draw(textimage)
@@ -159,31 +178,82 @@ def add_text(art, text, font, size, just, pos, rotation, textcolor, dropshadow, 
         result.paste(drop, drop)
     
     # Now place the text
-    ol.text(pos, text, fill=(textcolor['r'], textcolor['g'], textcolor['b']), font=font, anchor=anchor)
+    ol.text(pos, text, fill=tuple(fill), font=font, anchor=anchor, stroke_width=stroke, stroke_fill=tuple(color))
     textimage = textimage.rotate(angle=rotation, center=pos)
     textimage = textimage.resize([textimage.width * 2, textimage.height * 2], resample=Image.Resampling.LANCZOS)
     textimage = textimage.resize([textimage.width // 2, textimage.height // 2], resample=Image.Resampling.LANCZOS)
     result.paste(textimage, textimage)
     return result
 
-
+# Create an image containing the drop shadow of the text.
 def drop_shadow(art, pos, text, color, font, anchor, rotation):
     
     drop = Image.new('RGBA', art.size)
     draw = ImageDraw.Draw(drop)
-    draw.text(pos, text, fill=(color['r'], color['g'], color['b']), font=font, anchor=anchor)
+    draw.text(pos, text, fill=tuple(color), font=font, anchor=anchor)
     for i in range(7):
         drop = drop.filter(ImageFilter.BLUR)
     drop = drop.rotate(angle=rotation, center=pos)
     return drop
     
+
+# Validate the values of the command, fill in the default value if illegal value or not present
+def build_record(inp, ctype):
     
+    result = {}
+    for var in defaults[ctype]:
+        if var not in inp.keys():
+            result[var] = defaults[ctype][var]['value']
+            continue
+        if type(inp[var]).__name__ != defaults[ctype][var]['type']:
+            result[var] = defaults[ctype][var]['value']
+            if 'errors' not in result.keys():
+                result['errors'] = []
+            result['errors'].append("Value for {0} is the wrong type: Expected {1}, but found {2}.".format(var, defaults[ctype][var]['type'], type(inp[var]).__name__ ))
+            continue
+        if defaults[ctype][var]['type'] == 'str':
+            if 'list' in defaults[ctype][var].keys():
+                if inp[var].lower() not in defaults[ctype][var]['list']:
+                    result[var] = defaults[ctype][var]['value']
+                    if 'errors' not in result.keys():
+                        result['errors'] = []
+                    result['errors'].append("Value for {0} is illegal. {1} is not one of {2}.".format(var, inp[var], defaults[ctype][var]['list']))
+                    continue
+            result[var] = inp[var]
+            continue
+        if defaults[ctype][var]['type'] == 'list':
+            if 'length' in defaults[ctype][var].keys():
+                if len(inp[var]) != defaults[ctype][var]['length']:
+                    result[var] = defaults[ctype][var]['value']
+                    if 'errors' not in result.keys():
+                        result['errors'] = []
+                    result['errors'].append("Length of list {0} not allowed. Should be length {1}".format(inp[var], defaults[ctype][var]['length']))
+                    continue
+            if 'minmax' in defaults[ctype][var].keys():
+                for val in inp[var]:
+                    if val < defaults[ctype][var]['minmax'][0]:
+                        if 'errors' not in result.keys():
+                            result['errors'] = []
+                        result['errors'].append("Increased {0} value {1} to minimum of {2}".format(var, val, defaults[ctype][var]['minmax'][0]))
+                    
+                        val = defaults[ctype][var]['minmax'][0]
+                    if val > defaults[ctype][var]['minmax'][1]:
+                        if 'errors' not in result.keys():
+                            result['errors'] = []
+                        result['errors'].append("Decreased {0} value {1} to maximum of {2}".format(var, val, defaults[ctype][var]['minmax'][1]))
+                        val = defaults[ctype][var]['minmax'][1]
+            result[var] = inp[var]
+            continue
+        result[var] = inp[var]            
+    return result
+
 # This checks the job descriptions for validity and ultimately renders the image to return.
 def generate_art(job):
     
+    print("------------------------------------------------------------")
     result = {}
     artsize = [0,0] # start with a 0-size canvas
-    arttype = list(job)[0]
+    arttype = list(job)[0].lower()
     
     # Determine the type of artwork we're creating
     match arttype:
@@ -223,57 +293,96 @@ def generate_art(job):
     while True:
         art = Image.new("RGBA", artsize, "black")
         for command in job[arttype]['commands']:
-            func = list(command)[0] 
+            func = list(command)[0]
             match func:
                 case "overlay":
+                    inp = {}
+                    inp = command[func].copy()
+                    inp = build_record(inp, 'overlay')
+                    if 'errors' in inp.keys():
+                        print("The following errors occurred while checking parameters for command with order {0}:".format(command[func]['order']))
+                        for error in inp['errors']:
+                            print(error)
                     art = add_overlay(
                         art, 
-                        command[func]['image'], 
-                        [command[func]['pos']['x'], command[func]['pos']['y']])
+                        inp['image'], 
+                        inp['pos'])
                 case "boverlay":
+                    inp = {}
+                    inp = command[func].copy()
+                    inp['image'] = batchtable[inp['image']][runcount]
+                    inp = build_record(inp, 'overlay')
+                    if 'errors' in inp.keys():
+                        print("The following errors occurred while checking parameters for command with order {0}:".format(command[func]['order']))
+                        for error in inp['errors']:
+                            print(error)
                     art = add_overlay(
                         art, 
-                        batchtable[command[func]['image']][runcount], 
-                        [command[func]['pos']['x'], command[func]['pos']['y']])
+                        inp['image'], 
+                        inp['pos'])
                 case "text":
+                    inp = {}
+                    inp = command[func].copy()
+                    inp = build_record(inp, 'text')
+                    if 'errors' in inp.keys():
+                        print("The following errors occurred while checking parameters for command with order {0}:".format(command[func]['order']))
+                        for error in inp['errors']:
+                            print(error)
                     art = add_text(
                         art, 
-                        command[func]['text'], 
-                        command[func]['font'],
-                        command[func]['size'],
-                        command[func]['just'],
-                        [command[func]['pos']['x'], command[func]['pos']['y']], 
-                        command[func]['rot'],
-                        command[func]['fill'],
-                        command[func]['drop'],
-                        command[func]['dcol'])
+                        inp['text'], 
+                        inp['font'],
+                        inp['size'],
+                        inp['just'],
+                        inp['pos'], 
+                        inp['rot'],
+                        inp['stroke'],
+                        inp['color'],
+                        inp['fill'],
+                        inp['drop'],
+                        inp['dcol'])
                 case "btext":
+                    inp = {}
+                    inp = command[func].copy()
+                    inp['text'] = batchtable[inp['text']][runcount]
+                    inp = build_record(inp, 'text')
+                    if 'errors' in inp.keys():
+                        print("The following errors occurred while checking parameters for command with order {0}:".format(command[func]['order']))
+                        for error in inp['errors']:
+                            print(error)
                     art = add_text(
                         art, 
-                        batchtable[command[func]['text']][runcount], 
-                        command[func]['font'], 
-                        command[func]['size'],
-                        command[func]['just'],
-                        [command[func]['pos']['x'], command[func]['pos']['y']], 
-                        command[func]['rot'],
-                        command[func]['fill'],
-                        command[func]['drop'],
-                        command[func]['dcol'])
+                        inp['text'], 
+                        inp['font'], 
+                        inp['size'],
+                        inp['just'],
+                        inp['pos'], 
+                        inp['rot'],
+                        inp['stroke'],
+                        inp['color'],
+                        inp['fill'],
+                        inp['drop'],
+                        inp['dcol'])
         if batchcount == 0:
             print("Exporting to {0}".format(job[arttype]['fnexp']))
             art = art.convert("YCbCr")
             with open(job[arttype]['fnexp'], 'wb') as fp:
                 art.save(fp, "JPEG", quality=95, optimize=True)
+                if 'art' not in result.keys():
+                    result['art'] = []
+                result['art'].append(job[arttype]['fnexp'])
         else:
             print("Exporting to {0}".format(batchtable[job[arttype]['fnexp']][runcount]))
             art = art.convert("YCbCr")
             with open(batchtable[job[arttype]['fnexp']][runcount], 'wb') as fp:
                 art.save(fp, "JPEG", quality=95, optimize=True)
+                if 'art' not in result.keys():
+                    result['art'] = []
+                result['art'].append(batchtable[job[arttype]['fnexp']][runcount])
         if runcount >= batchcount - 1:
             break
         runcount += 1
-        print("------------------------------------------------------------")
-    result['art'] = art    
+    print("------------------------------------------------------------")    
     return result
 
     

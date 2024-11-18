@@ -31,22 +31,23 @@ Overlay and BOverlay:
     {
         "order" : "1",                        <- The order of the command (to stack the layers correctly, first come first serve if equal)
         "image" : "path/to/filename.ext",     <- The path to the layer image, or the name of the image column in the csv for BOverlay
-        "pos" : {"x": 0, "y": 0}              <- The (x,y) coordinates of the top left pixel in the resulting image.
+        "pos" : [0,0]                         <- The [x,y] coordinates of the top left pixel in the resulting image.
     }
 
 Text and BText:
     {
-        "order" : "3",                        <- The order of the command (to stack the layers correctly, first come first server if equal)    
-        "font"  : "path/to/ttf/file.ttf",     <- The path to the font file.
-        "text"    : "text to add",            <- The text to add, or the name of the column containing the text if BText.
-        "pos"   : {"x": 0, "y": 0},           <- The (x,y) coordinates of the justification point (bottom-left, bottom-right or bottom-center)
-        "size"  : 10                          <- Size of the font (in points, default 10)
-        "just"  : "left",                     <- The justification (left, right, center)
-        "rot"    : 0,                         <- The rotation of the text (counter-clockwise rotation from the horizontal) around the pos pivot.
-        "fill"    : {"r": 0, "g": 0, "b": 0}, <- The fill color of the text. White (255,255,255) is the default.
-        "drop"    : "true",                   <- Should the text contain a drop shadow?
-        "dcol"    : {"r": 0, "g": 0, "b": 0}, <- Color of the drop shadow. Black (0,0,0) is the default.
-        "dang"    : 45                        <- Angle of the drop shadow (clockwise rotation from 'east'), default is 45 degrees
+        "order"   : "3",                        <- The order of the command (to stack the layers correctly, first come first server if equal)    
+        "font"    : "path/to/ttf/file.ttf",     <- The path to the font file.
+        "text"    : "text to add",              <- The text to add, or the name of the column containing the text if BText.
+        "pos"     : [0,0],                      <- The (x,y) coordinates of the justification point (bottom-left, bottom-right or bottom-center)
+        "size"    : 10                          <- Size of the font (in points, default 10)
+        "just"    : "left",                     <- The justification (left, right, center)
+        "rot"     : 0,                          <- The rotation of the text (counter-clockwise rotation from the horizontal) around the pos pivot.
+        "stroke"  : 0,                          <- The width of the outline of the text. Defaults to 0.  
+        "color"   : [0,0,0],                    <- The color of the outline in the format [r,g,b]. Defaults to [0,0,0] which is black.
+        "fill"    : [0,0,0],                    <- The fill color of the text. White (255,255,255) is the default.
+        "drop"    : "true",                     <- Should the text contain a drop shadow?
+        "dcol"    : [0,0,0],                    <- Color of the drop shadow. Black (0,0,0) is the default.
     }
     
 '''
@@ -75,11 +76,13 @@ if __name__ == '__main__':
     if not (isinstance(data['job'], list)): # Make sure there's a list of output types. 
         data['job'] = [data['job']] # If it's a single type, make it a list anyway.
     for arttype in data['job']:
+        print('Processing {0}s'.format(list(arttype)[0].lower()))
         art = artworks.generate_art(arttype)
         if 'error' in art.keys():
             print("Error while parsing job file {0} for job {1}:".format(args.filename, list(arttype)[0]))
             print(art['error'])
             continue
+        print('Finished exporting {0}s'.format(list(arttype)[0].lower()))
     print("Done processing.")
     sys.exit(0)
                     
