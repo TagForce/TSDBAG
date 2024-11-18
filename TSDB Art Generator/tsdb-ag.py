@@ -32,6 +32,7 @@ Overlay and BOverlay:
         "order" : "1",                        <- The order of the command (to stack the layers correctly, first come first serve if equal)
         "image" : "path/to/filename.ext",     <- The path to the layer image, or the name of the image column in the csv for BOverlay
         "pos" : [0,0]                         <- The [x,y] coordinates of the top left pixel in the resulting image.
+        "zoom": 1.0                           <- The Zoom factor of the image. default 1.0. 0.5 = half size, 2.0 double size.
     }
 
 Text and BText:

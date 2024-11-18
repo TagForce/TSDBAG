@@ -24,7 +24,8 @@ defaults = {
              },
     'overlay': {
              'image' : {'value': None, 'type': 'str'},
-             'pos'   : {'value': [0,0], 'type': 'list', 'length': 2}
+             'pos'   : {'value': [0,0], 'type': 'list', 'length': 2},
+             'zoom'  : {'value': 1.0, 'type': 'float'}
         }
     }
     
@@ -139,13 +140,15 @@ def sort_commands(commandlist):
 
 
 # Add an image on top of the artwork
-def add_overlay(art, img, pos):
+def add_overlay(art, img, pos, zoom):
     
     if img == '': # Image value is empty for this overlay, skip it.
         return art
     # print("Adding image {0} to artwork at position ({1}, {2})".format(img, pos[0], pos[1]))
     result = art
     ol = Image.open(img)
+    if zoom != 1.0:
+        ol.resize([int(ol.width * zoom), int(ol.height * zoom)], resample=Image.Resampling.LANCZOS)
     result.paste(ol, pos.copy(), ol)
     return result
 
@@ -306,7 +309,8 @@ def generate_art(job):
                     art = add_overlay(
                         art, 
                         inp['image'], 
-                        inp['pos'])
+                        inp['pos'],
+                        inp['zoom'])
                 case "boverlay":
                     inp = {}
                     inp = command[func].copy()
@@ -319,7 +323,8 @@ def generate_art(job):
                     art = add_overlay(
                         art, 
                         inp['image'], 
-                        inp['pos'])
+                        inp['pos'],
+                        inp['zoom'])
                 case "text":
                     inp = {}
                     inp = command[func].copy()
